@@ -295,7 +295,7 @@ class Reader(object):
                  text_threshold = 0.7, low_text = 0.4, link_threshold = 0.4,\
                  canvas_size = 2560, mag_ratio = 1.,\
                  slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5,\
-                 width_ths = 0.5, add_margin = 0.1):
+                 width_ths = 0.5, add_margin = 0.1, text_boxes=None, no_recognition=False):
         '''
         Parameters:
         image: file path or numpy-array or a byte stream object
@@ -330,15 +330,45 @@ class Reader(object):
         else:
             LOGGER.warning('Invalid input type. Suppoting format = string(file path or url), bytes, numpy array')
 
-        text_box = get_textbox(self.detector, img, canvas_size, mag_ratio, text_threshold,\
-                               link_threshold, low_text, False, self.device)
-        horizontal_list, free_list = group_text_box(text_box, slope_ths, ycenter_ths, height_ths, width_ths, add_margin)
+        if text_boxes is None:
+            text_box = get_textbox(self.detector, img, canvas_size, mag_ratio, text_threshold,\
+                                   link_threshold, low_text, False, self.device)
+            horizontal_list, free_list = group_text_box(text_box, slope_ths, ycenter_ths, height_ths, width_ths, add_margin)
 
-        if min_size:
-            horizontal_list = [i for i in horizontal_list if max(i[1]-i[0],i[3]-i[2]) > min_size]
-            free_list = [i for i in free_list if max(diff([c[0] for c in i]), diff([c[1] for c in i]))>min_size]
+            if min_size:
+                horizontal_list = [i for i in horizontal_list if max(i[1]-i[0],i[3]-i[2]) > min_size]
+                free_list = [i for i in free_list if max(diff([c[0] for c in i]), diff([c[1] for c in i]))>min_size]
 
-        image_list, max_width = get_image_list(horizontal_list, free_list, img_cv_grey, model_height = imgH)
+        else:
+            horizontal_list = list()
+            free_list = list()
+            for box in text_boxes:
+                assert len(box) == 4
+                if isinstance(box[0], int):
+                    assert box[0] < box[1] and box[2] < box[3]
+                    horizontal_list.append(box)
+                elif box[0][0] == box[3][0] and box[0][1] == box[1][1] and \
+                        box[1][0] == box[2][0] and box[2][1] == box[3][1]:
+                    box = (box[0][0], box[1][0], box[0][1], box[2][1])
+                    assert box[0] < box[1] and box[2] < box[3]
+                    horizontal_list.append(box)
+                else:
+                    free_list.append(box)
+
+        if no_recognition:
+            box_list = list(free_list)
+            maximum_y, maximum_x = img.shape
+            for box in horizontal_list:
+                x_min = max(0, box[0])
+                x_max = min(box[1], maximum_x)
+                y_min = max(0, box[2])
+                y_max = min(box[3], maximum_y)
+                box_list.append([[x_min,y_min],[x_max,y_min],[x_max,y_max],[x_min,y_max]])
+            return sorted(box_list, key=lambda item: item[0][0][1])
+
+        image_list, max_width = get_image_list(
+            horizontal_list, free_list, img_cv_grey, model_height = imgH, sort_output=(text_boxes is None)
+        )
 
         if allowlist:
             ignore_char = ''.join(set(self.character)-set(allowlist))

@@ -454,7 +454,7 @@ def group_text_box(polys, slope_ths = 0.1, ycenter_ths = 0.5, height_ths = 0.5, 
     # may need to check if box is really in image
     return merged_list, free_list
 
-def get_image_list(horizontal_list, free_list, img, model_height = 64):
+def get_image_list(horizontal_list, free_list, img, model_height = 64, sort_output=True):
     image_list = []
     maximum_y,maximum_x = img.shape
 
@@ -486,7 +486,8 @@ def get_image_list(horizontal_list, free_list, img, model_height = 64):
     max_ratio = max(max_ratio_hori, max_ratio_free)
     max_width = math.ceil(max_ratio)*model_height
 
-    image_list = sorted(image_list, key=lambda item: item[0][0][1]) # sort by vertical position
+    if sort_output:
+        image_list = sorted(image_list, key=lambda item: item[0][0][1]) # sort by vertical position
     return image_list, max_width
 
 def download_and_unzip(url, filename, model_storage_directory):
